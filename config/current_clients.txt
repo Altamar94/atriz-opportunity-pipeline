@@ -1,0 +1,4 @@
+# Current Atriz clients - always excluded from opportunity lists.
+# One company name per line (case-insensitive, matched as a substring of company_name).
+# Add a line whenever a new client signs.
+One Park Financial
