@@ -1,0 +1,64 @@
+name: Weekly opportunity scoring
+
+on:
+  schedule:
+    # Every Sunday 11:00 UTC = 7:00 AM Caracas (UTC-4)
+    - cron: '0 11 * * 0'
+  workflow_dispatch:
+    inputs:
+      dataset_id:
+        description: 'Optional: re-score an existing Apify dataset ID instead of starting a new run (no Apify credits used)'
+        required: false
+        default: ''
+      deliver:
+        description: 'Upload to Drive and send the email'
+        type: boolean
+        default: true
+      lookback_days:
+        description: 'Optional: override dateFetchedPastNDays for this run only'
+        required: false
+        default: ''
+
+concurrency:
+  group: weekly-scoring
+  cancel-in-progress: false
+
+jobs:
+  score:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run Apify, score, deliver
+        env:
+          APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
+          APIFY_ACTOR_ID: ${{ vars.APIFY_ACTOR_ID }}
+          APIFY_TASK_ID: ${{ vars.APIFY_TASK_ID }}
+          APIFY_DATASET_ID: ${{ inputs.dataset_id }}
+          APIFY_LOOKBACK_DAYS: ${{ inputs.lookback_days || vars.APIFY_LOOKBACK_DAYS }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_REFRESH_TOKEN }}
+          GDRIVE_FOLDER_ID: ${{ vars.GDRIVE_FOLDER_ID }}
+          GDRIVE_AS_SHEET: ${{ vars.GDRIVE_AS_SHEET }}
+          EMAIL_TO: ${{ vars.EMAIL_TO }}
+          DELIVER: ${{ github.event_name == 'schedule' && 'true' || inputs.deliver }}
+          REMOVE_SALES_TITLES: ${{ vars.REMOVE_SALES_TITLES }}
+        run: python pipeline/run_pipeline.py
+
+      - name: Keep raw JSON and scored CSV (30 days)
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: opportunities-${{ github.run_number }}
+          path: output/
+          retention-days: 30
+          if-no-files-found: ignore
