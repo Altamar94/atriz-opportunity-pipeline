@@ -1,7 +1,7 @@
 {
   "enrichDescription": true,
   "flattenOutput": false,
-  "maxConcurrency": 100,
+  "maxConcurrency": 5,
   "maxItems": 5000,
   "maxRequestRetries": 200,
   "minConcurrency": 1,
