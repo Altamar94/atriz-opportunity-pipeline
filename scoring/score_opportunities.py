@@ -145,6 +145,27 @@ SENIOR_CARE_NAME = ['senior living','senior care','assisted living','memory care
 # the industry". Bare 'platform' in activities is not enough (an operator can
 # mention its own "online ordering platform").
 STRICT_VENDOR_INDUSTRY = ['software','saas','technology','platforms']
+
+# ---------------- v2.1: consulting firms (hard pass, Tony 2026-09-25) ----------------
+# NOTE: the dataset's very common "IT Services & Consulting" tag is deliberately NOT a
+# signal - it sits on 140+ ordinary SaaS companies (Perry Weather, Workstream, Datacore...).
+CONSULTING_INDUSTRY = ['management consulting','business consulting','strategy consulting',
+                       'consulting services','medical consulting']
+CONSULTING_NAME = ['consulting','consultants','consultancy','llp','cpa','cpas','attorneys',
+                   'law','law group','law firm','engineers']
+# Professional-services firms, judged by the company's PRIMARY (first-listed) industry tag.
+# First-tag only: "IT Services & Consulting" / "Legal Services" as a secondary tag is common on
+# SaaS and legal-tech companies, which stay in.
+PROF_SERVICES_PRIMARY_TAGS = {'it services & consulting','it services','management consulting',
+                              'business consulting and services','accounting & tax services',
+                              'accounting','legal services','law practice','law firms',
+                              'architecture & engineering services','engineering services',
+                              'civil engineering'}
+PROF_SERVICES_ACTIVITY = ['it staff augmentation','staff augmentation','government contracting',
+                          'federal contracting','it consulting','technology consulting',
+                          'systems integration services','audit and assurance',
+                          'audit and assurance services']
+CONSULTING_PRIMARY_ACTIVITY = ['consulting','advisory','advisory services']
 STRICT_VENDOR_ACTIVITY = ['software','saas']
 FRANCHISE_SIGNALS = ['franchise','franchisee','multi-level marketing','mlm']
 FRANCHISE_CORP_EXCEPTION_PHRASES = ['franchise development','franchise business development',
@@ -183,6 +204,28 @@ def _load_current_clients():
                 return names
     return ['one park financial']
 CURRENT_CLIENTS = _load_current_clients()
+
+def _load_list(filename):
+    here = os.path.dirname(os.path.abspath(__file__))
+    path = os.path.join(here, '..', 'config', filename)
+    if not os.path.exists(path):
+        return []
+    with open(path) as fh:
+        return [normalize_title(l.strip()).lower() for l in fh
+                if l.strip() and not l.strip().startswith('#')]
+
+# v2.2 (Tony 2026-10-04) - both lists are editable in config/
+EXCLUDED_COMPANIES = _load_list('excluded_companies.txt')
+OUT_OF_SCOPE_ROLES = _load_list('out_of_scope_roles.txt')
+
+# Aerospace & Defense / Manufacturing companies (judged by PRIMARY industry tag) are a hard
+# pass unless the open role is CMO or VP of Marketing.
+AERO_MFG_PRIMARY_SIGNALS = ['manufacturing','aerospace','defense']
+def is_cmo_or_vp_marketing(title):
+    t = normalize_title(title or '').lower()
+    if has_phrase(t, 'cmo') or has_phrase(t, 'chief marketing officer'):
+        return True
+    return any(has_phrase(t, v) for v in ('vp','svp','evp')) and has_phrase(t, 'marketing')
 
 # Sales-title removal is PAUSED (Tony, 2026-09-08, reconfirmed every batch through
 # 09-21): sales-titled rows are kept, scored normally, and flagged. Set env var
@@ -410,6 +453,18 @@ def score_row(f):
         override_ignore = True
         override_reasons.append('current client - excluded')
 
+    if any(has_phrase(company_name, c) for c in EXCLUDED_COMPANIES):
+        override_ignore = True
+        override_reasons.append('company on the hard-pass list (config/excluded_companies.txt)')
+
+    primary_tag = (f['industries'][0] if f['industries'] else '').strip()
+    if any(has_phrase(primary_tag, k) for k in AERO_MFG_PRIMARY_SIGNALS):
+        if is_cmo_or_vp_marketing(title):
+            flags.append(f'aerospace/defense/manufacturing company ({primary_tag}) - kept because role is CMO/VP Marketing')
+        else:
+            override_ignore = True
+            override_reasons.append(f'aerospace/defense/manufacturing company ({primary_tag}) - hard pass unless CMO/VP Marketing')
+
     if nb_emp is not None and nb_emp > 1000:
         override_ignore = True
         override_reasons.append(f'nb_employees={nb_emp} > 1000 - auto-Ignore')
@@ -450,6 +505,26 @@ def score_row(f):
         override_reasons.append(f'senior care/assisted living/home care ({how}) - hard pass')
     elif verdict == 'vendor':
         flags.append('senior-care signal but looks like tech vendor to that industry - not excluded, review')
+
+    # Consulting / professional-services firms (Tony 2026-09-25: consultancies, accounting/CPA,
+    # law, IT services & gov contractors, engineering consultancies - all hard pass).
+    first_tag = (f['industries'][0] if f['industries'] else '').strip().lower()
+    first_activity = f['activities'][0] if f['activities'] else ''
+    if first_tag in PROF_SERVICES_PRIMARY_TAGS:
+        override_ignore = True
+        override_reasons.append(f'consulting/professional-services firm (primary industry: {first_tag}) - hard pass')
+    elif any_phrase(activities_text, PROF_SERVICES_ACTIVITY):
+        override_ignore = True
+        override_reasons.append('consulting/professional-services firm (staff augmentation / gov contracting / IT consulting / audit activity) - hard pass')
+    elif (any_phrase(industries_text, CONSULTING_INDUSTRY) or any_phrase(company_name, CONSULTING_NAME)
+          or any_phrase(first_activity, CONSULTING_PRIMARY_ACTIVITY)):
+        # Secondary consulting signal: rescued (flagged) only for a software company whose
+        # activities never mention consulting/advisory.
+        if any_phrase(industries_text, ['software','saas']) and not any_phrase(activities_text, ['consulting','advisory']):
+            flags.append('consulting signal but looks like a software company - not excluded, review')
+        else:
+            override_ignore = True
+            override_reasons.append('consulting/professional-services firm - hard pass')
 
     if any_phrase(industries_text, FRANCHISE_SIGNALS) or any_phrase(activities_text, FRANCHISE_SIGNALS) \
        or any_phrase(company_name, FRANCHISE_SIGNALS):
@@ -530,6 +605,14 @@ def score_row(f):
     base_score = (size_score + ind_score + loc_score + margin_score + famt_score +
                   frec_score + ftype_score + niche_fit_score + sen_score)
     final_score = round(base_score + ded, 2)
+
+    role_hit = next((r for r in OUT_OF_SCOPE_ROLES if has_phrase(title, r)), None)
+    if role_hit and not override_ignore:
+        if final_score >= 10:
+            flags.append(f'out-of-scope role "{role_hit}" - kept only because the company scores as ICP')
+        else:
+            override_ignore = True
+            override_reasons.append(f'out-of-scope role "{role_hit}" - only pursued at ICP-tier companies (score >= 10)')
 
     if override_ignore:
         priority = 'Ignore'
@@ -649,6 +732,9 @@ def run(input_files, output_path):
                                          if r['priority'] in ('ICP','Qualified') and r['niche'] == 'None'),
         'excluded_restaurant': sum(1 for r in final_rows if 'restaurant/food-service operator' in r['flags']),
         'excluded_senior_care': sum(1 for r in final_rows if 'senior care/assisted living' in r['flags']),
+        'excluded_aero_mfg': sum(1 for r in final_rows if 'hard pass unless CMO/VP Marketing' in r['flags']),
+        'excluded_out_of_scope_role': sum(1 for r in final_rows if 'only pursued at ICP-tier' in r['flags']),
+        'excluded_consulting': sum(1 for r in final_rows if 'consulting/professional-services firm' in r['flags']),
     }
     summary_path = os.environ.get('SUMMARY_JSON')
     if summary_path:

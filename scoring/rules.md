@@ -373,3 +373,74 @@ Requested by Tony: "take out the senior caring houses and the restaurants."
   writes a JSON summary: funnel counts, priority/niche breakdown, top 25
   ICP/Qualified rows, the niche=None Qualified+ count, and the
   restaurant/senior-care exclusion counts. The weekly email uses it.
+
+## v2.1 (2026-09-25): consulting and professional-services firms are a hard pass
+
+Requested by Tony: "consulting firms are 'hard pass'". On review he extended this to
+accounting/CPA firms, law firms, IT services firms and government contractors, and
+engineering consultancies (example: CGI Infinity).
+
+- **The primary industry decides.** A firm is excluded when its FIRST industries tag
+  is one of: IT Services & Consulting, IT Services, Management Consulting, Business
+  Consulting and Services, Accounting & Tax Services, Accounting, Legal Services, Law
+  Practice, Architecture & Engineering Services, Engineering Services, or Civil
+  Engineering.
+  - Only the first tag counts. "IT Services & Consulting" appears as a *secondary* tag
+    on 140+ ordinary SaaS companies (Perry Weather, Workstream, Datacore, Aravo,
+    Trintech, Spekit...), and all of those stay in. Legal-tech SaaS with a secondary
+    "Legal Services" tag stays in for the same reason.
+- **Some activities exclude a firm on their own:** staff augmentation, IT staff
+  augmentation, government or federal contracting, IT or technology consulting,
+  systems integration services, and audit and assurance.
+- **Secondary consulting signals** also exclude a firm, unless it is a software
+  company whose activities never mention consulting or advisory (that case is
+  flagged instead):
+  - a Management/Business/Strategy/Medical Consulting tag anywhere in industries;
+  - a professional-services word in the company name: consulting, consultants,
+    consultancy, LLP, CPA, attorneys, law, law group, law firm, engineers;
+  - a first activity that is consulting or advisory.
+- **Tested on 09-14 and 04-16.** Newly excluded: Portage Point Partners, Arcurve,
+  Essintial, Visual Edge IT, Base-2, RealmOne, Critical Solutions, Clarity Innovations
+  (government contracting), Whitley Penn, Cain Watters, Cummins Worldwide, Jimerson
+  Birr, Zinda Law Group, Kanner & Pintaluga, Kelley Kronenberg, Steinger Greene &
+  Feiner, Carlton Fields, Ayres Associates, BRPH, Schnackel Engineers, Pond, ESP
+  Associates, GAI Consultants, October Three, and Atomic (venture studio with a
+  Business Consulting tag). No SaaS company changed.
+
+Config change in the same release: `enrichDescription` is now false. The scorer never
+reads job descriptions, and fetching them was the request burst that triggered
+hiring.cafe's 429 rate limiting.
+
+## v2.2 (2026-10-04): Tony's corrections
+
+- **Company hard-pass list** in `config/excluded_companies.txt`: Symphony Talent, One
+  Network Enterprises, Life Surge, Aceable, LodgeWorks, Hospitality Management
+  Corporation. A company is matched as a whole phrase inside company_name. To add one,
+  edit the file.
+- **Aerospace & Defense and Manufacturing are a hard pass unless the role is CMO or VP
+  of Marketing.**
+  - The test uses the company's PRIMARY (first) industries tag, looking for
+    "manufacturing", "aerospace" or "defense". This keeps SaaS companies with a
+    secondary manufacturing tag, such as Perry Weather ("Electronics Manufacturing" as
+    its third tag).
+  - Accepted exception titles: CMO, Chief Marketing Officer, and any VP/SVP/EVP title
+    containing "marketing".
+  - Head of Marketing and Director of Marketing do NOT qualify, per Tony's wording.
+  - Tested on 09-14: removed BK Technologies, Intuitive Machines, FTAI Aviation, Aegis
+    Aerospace, Ondas, Heads Up Technologies, Panelmatic, HydroGraph, LEE Industries,
+    Cooper Machinery and CM Truck Beds. Also removed consumer-goods makers whose primary
+    tag is a manufacturing tag: Built Bar, Travelpro, Sunny Sky Products, Front of the
+    House. Open question for Tony: should DTC/CPG brands be exempt?
+- **Out-of-scope roles** in `config/out_of_scope_roles.txt`, one title per line.
+  - Matching: a title matches when it CONTAINS the phrase, so "program manager" also
+    catches "Technical Program Manager". "Vice President" and "VP" are treated as the
+    same.
+  - These rows are forced to Ignore unless the row still scores 10 or more (the ICP
+    tier). That is how "unless the company is 100% ICP" was implemented.
+  - "Director of Engineering" is on this list, even though it is also in Michael's
+    Product & Tech role scope. Tony's later instruction wins. At an ICP-tier company it
+    is still kept (Fireblocks, 04-16).
+  - Tested: removed Dorsia (Director of Partnerships), TENEX.AI (Director of Portfolio
+    and Program Mgmt), Moloco (Technical Program Manager), Hays Electrical, SkyHop
+    Global (Director of Talent Acquisition), and Earth Fare (Director of Accounting).
+- **Net effect on 09-14:** ICP 12 → 11, Qualified 49 → 44, Marginal 74 → 59.
