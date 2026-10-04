@@ -1,0 +1,34 @@
+# Roles that are out of scope UNLESS the row still scores as ICP (score >= 10, i.e. a near-perfect company).
+# One title per line (case-insensitive). A line matches any title that CONTAINS it as a phrase,
+# so "project manager" also catches "Senior Project Manager". "Vice President" and "VP" are treated as the same.
+Internal Sales Director
+Director of Facilities and Expansion
+Director of Supply Chain
+Director of Portfolio and Program Management
+VP, Legal
+Director of Engineering
+Director, AI Sales
+Vice President of Transportation
+Director of Strategic Sourcing
+People Operations Director
+Head of Local Growth
+Senior EA
+Senior Executive Assistant
+Sales Account Director
+Director of Partnerships
+Director of Network Operations
+Autonomous Operations Director
+Head of Procurement
+Director of Product Management
+Director of Talent Acquisition
+Director of Accounting
+Associate Director, Operational Excellence
+Director of Technology Integration
+Account Director
+Client Partner
+Director of Tax
+Senior Vice President, Public Relations
+Associate Director of Program Management
+Project Manager
+Program Manager
+Director, Relationship Management

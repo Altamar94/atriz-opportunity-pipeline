@@ -1,0 +1,8 @@
+# Companies that are always a hard pass, whatever the role or score.
+# One company name per line (case-insensitive, matched as a whole phrase inside company_name).
+Symphony Talent
+One Network Enterprises
+Life Surge
+Aceable
+LodgeWorks
+Hospitality Management Corporation
