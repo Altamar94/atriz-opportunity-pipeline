@@ -1,0 +1,39 @@
+# Roles that are NOT ICP - always a hard pass, whatever the company or score (Tony 2026-10-07).
+# One title per line (case-insensitive). A line matches any title that CONTAINS it as a phrase.
+# "Vice President" and "VP" are treated as the same.
+Head of Security Engineering
+Director of Customer Success
+Chief Legal Officer
+Fire Chief
+Survey Crew Chief
+Layout Extraction Engineer
+Contents Crew Chief
+Staff Security Engineer
+Director of Test Engineering
+Foundry Engineering
+Art Director
+Vice President, Capital Formation
+VP, Strategic Planning & Economics
+Vice President, Investor Relations
+Director of Infrastructure & Security
+Asset Management Service Director
+Director of Commissioning
+Assistant Chief Pilot
+Chief Pilot
+Operations Resilience Director
+Vice President / Director, Insurance/Reinsurance
+Director Electrical Engineering
+industrial engineering
+Director, Interconnection Services
+Director of Manufacturing Technology
+Director, Energy Capital Markets
+Assistant Vice President, E&S Casualty
+Director of Capital Management
+Assistant Vice President, Commercial Surety
+Cybersecurity Director
+Commodity Accounting Director
+Executive Assistant
+Vice President of Construction
+Director, Risk Management
+Medical Director
+Head of Agency Operations
