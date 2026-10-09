@@ -31,6 +31,8 @@ from email.message import EmailMessage
 from zoneinfo import ZoneInfo
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, 'scoring'))
@@ -57,6 +59,12 @@ def apify_session():
         raise SystemExit('APIFY_TOKEN is not set')
     s = requests.Session()
     s.headers['Authorization'] = f'Bearer {token}'
+    # Retry transient failures (network blips, 429 rate limits, 5xx) with exponential backoff
+    # (2s, 4s, 8s, 16s, 32s). GET only: retrying the POST that STARTS a run could launch a
+    # second, paid Apify run, so POSTs are never retried.
+    retry = Retry(total=5, backoff_factor=2, status_forcelist=[429, 500, 502, 503, 504],
+                  allowed_methods=['GET'], respect_retry_after_header=True, raise_on_status=False)
+    s.mount('https://', HTTPAdapter(max_retries=retry))
     return s
 
 
