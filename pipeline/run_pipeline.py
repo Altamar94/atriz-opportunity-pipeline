@@ -121,6 +121,24 @@ def wait_for_run(s, run):
         log(f'run status: {status} ...')
 
 
+def resolve_dataset_id(s, given_id):
+    """Accept either a DATASET ID or a RUN ID (the run ID is the one Apify shows most
+    prominently on a run's page, so it is the one people usually copy)."""
+    r = s.get(f'{APIFY}/datasets/{given_id}', timeout=60)
+    if r.status_code == 200:
+        log(f'using dataset {given_id}')
+        return given_id, ''
+    r = s.get(f'{APIFY}/actor-runs/{given_id}', timeout=60)
+    if r.status_code == 200:
+        run = r.json()['data']
+        log(f'{given_id} is a RUN id - using its dataset {run["defaultDatasetId"]}')
+        return run['defaultDatasetId'], f'https://console.apify.com/view/runs/{given_id}'
+    raise RuntimeError(
+        f'Apify has no dataset or run with ID "{given_id}" (HTTP {r.status_code}). '
+        f'Check the ID was copied completely. If the run is old, its data may have passed '
+        f'your Apify plan\'s retention period even though the run still shows in the list.')
+
+
 def download_dataset(s, dataset_id):
     items, offset, limit = [], 0, 1000
     while True:
@@ -245,6 +263,8 @@ def main():
         run = wait_for_run(s, start_run(s))
         dataset_id = run['defaultDatasetId']
         apify_url = f'https://console.apify.com/view/runs/{run["id"]}'
+    else:
+        dataset_id, apify_url = resolve_dataset_id(s, dataset_id)
     items = download_dataset(s, dataset_id)
     if not items:
         raise RuntimeError(f'Apify dataset {dataset_id} is empty - nothing to score')
