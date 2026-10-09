@@ -444,3 +444,51 @@ hiring.cafe's 429 rate limiting.
     and Program Mgmt), Moloco (Technical Program Manager), Hays Electrical, SkyHop
     Global (Director of Talent Acquisition), and Earth Fare (Director of Accounting).
 - **Net effect on 09-14:** ICP 12 → 11, Qualified 49 → 44, Marginal 74 → 59.
+
+## v2.3 (2026-10-04): DTC/consumer brands are exempt from the manufacturing hard pass
+
+Tony: "don't take DTC/consumer brands out, they're a good niche for us, Built Bar
+included."
+
+- A company with a manufacturing primary tag is KEPT (and flagged for review) when
+  either of these is true:
+  - its industries include CPG / Consumer Packaged Goods, Consumer Goods or Products,
+    DTC / Direct-to-Consumer, E-Commerce, Personal Care, Beauty, Cosmetics, Apparel,
+    Fashion, Pet Products, Consumer Electronics, Sporting Goods, or Health and
+    Wellness;
+  - its activities mention direct-to-consumer, e-commerce, online retail or store,
+    retail sales, consumer products, or subscription box.
+- The exemption does not apply to Aerospace & Defense.
+- Back in on 09-14: Built Bar (Marginal), Travelpro (Marginal). Front of the House
+  (Marginal) also came back because its data carries a Consumer Packaged Goods tag,
+  although it sells tableware to restaurants. Flagged for review.
+- Large consumer companies (Danone, Keurig Dr Pepper, FIGS, Ashley) pass this rule but
+  stay Ignore through the >1000-employee rule.
+- Still excluded: industrial and B2B manufacturers (Panelmatic, Cooper Machinery,
+  HydroGraph, LEE Industries, CM Truck Beds, Sunny Sky Products) and all
+  aerospace/defense.
+
+## v2.4 (2026-10-07): roles that are never ICP, and funeral services
+
+- **Never-ICP roles** live in `config/excluded_roles.txt` (36 titles from Tony; Medical Director and Head of Agency Operations added the same day). These
+  are always forced to Ignore, at any score or company. They differ from
+  `out_of_scope_roles.txt`, whose roles are still kept at ICP-tier companies (score 10
+  or more).
+  - Matching works the same way: a title matches when it contains the phrase, and
+    "Vice President" and "VP" are treated as the same. So "Executive Assistant" also
+    catches "Senior Executive Assistant", "Art Director" catches "Associate Art
+    Director", and "industrial engineering" catches "Director of Industrial
+    Engineering".
+  - Tested on 09-14: removed Nscale (Foundry Engineering, was Qualified), Reef Capital
+    Partners (VP Capital Formation, was Qualified), Removery (Director of
+    Infrastructure & Security, was Qualified), Caturus (Cybersecurity Director), Kettle
+    (Art Director), and Cancer Center of South Florida (Chief Legal Officer).
+- **Funeral services and death care are a hard pass.** The signals are funeral
+  services/homes, death care, cemeteries, crematories, mortuaries, cremation, burial,
+  embalming, and pre-need planning. They are checked in name, activities, and
+  industries, using the same strict tech-vendor rescue as the restaurant and
+  senior-care rules.
+  - Tested on 09-14: caught Foundation Partners Group (Funeral Director, was Marginal).
+    Carriage Services and Service Corporation International were already Ignore via
+    size.
+- **Net effect on 09-14:** Qualified 44 → 41, Marginal 62 → 58.

@@ -217,10 +217,30 @@ def _load_list(filename):
 # v2.2 (Tony 2026-10-04) - both lists are editable in config/
 EXCLUDED_COMPANIES = _load_list('excluded_companies.txt')
 OUT_OF_SCOPE_ROLES = _load_list('out_of_scope_roles.txt')
+EXCLUDED_ROLES = _load_list('excluded_roles.txt')   # v2.4: always Ignore
+
+# v2.4 (Tony 2026-10-07): funeral services / death care is a hard pass.
+FUNERAL_INDUSTRY = ['funeral services','funeral service','funeral homes','funeral home','death care',
+                    'cemeteries','cemetery','crematory','crematories','mortuary']
+FUNERAL_OPERATOR_ACTIVITY = ['funeral services','funeral service','funeral home','funeral homes',
+                             'funeral home operations','cremation services','cremation','burial services',
+                             'cemetery operations','cemetery management','mortuary services','embalming',
+                             'memorial services','pre-need funeral planning','preneed']
+FUNERAL_NAME = ['funeral','funeral home','funeral homes','mortuary','cremation','crematory',
+                'cemetery','memorial park','memorial gardens']
 
 # Aerospace & Defense / Manufacturing companies (judged by PRIMARY industry tag) are a hard
 # pass unless the open role is CMO or VP of Marketing.
 AERO_MFG_PRIMARY_SIGNALS = ['manufacturing','aerospace','defense']
+# DTC / consumer brands are exempt from the manufacturing hard pass (Tony 2026-10-04:
+# "they're a good niche for us, Built Bar included"). Not applied to aerospace/defense.
+CONSUMER_BRAND_INDUSTRY = ['consumer packaged goods','cpg','consumer goods','consumer products',
+                           'dtc','direct to consumer','direct-to-consumer','e-commerce','ecommerce',
+                           'personal care','beauty','cosmetics','apparel','fashion','pet products',
+                           'consumer electronics','sporting goods','health and wellness']
+CONSUMER_BRAND_ACTIVITY = ['direct-to-consumer','direct to consumer','dtc','e-commerce','ecommerce',
+                           'online retail','online store','retail sales','consumer products',
+                           'subscription box']
 def is_cmo_or_vp_marketing(title):
     t = normalize_title(title or '').lower()
     if has_phrase(t, 'cmo') or has_phrase(t, 'chief marketing officer'):
@@ -453,13 +473,31 @@ def score_row(f):
         override_ignore = True
         override_reasons.append('current client - excluded')
 
+    verdict, how = category_override(company_name, industries_text, activities_text,
+                                     FUNERAL_INDUSTRY, FUNERAL_OPERATOR_ACTIVITY, FUNERAL_NAME)
+    if verdict == 'exclude':
+        override_ignore = True
+        override_reasons.append(f'funeral services / death care ({how}) - hard pass')
+    elif verdict == 'vendor':
+        flags.append('funeral-services signal but looks like tech vendor to that industry - not excluded, review')
+
+    excluded_role = next((r for r in EXCLUDED_ROLES if has_phrase(title, r)), None)
+    if excluded_role:
+        override_ignore = True
+        override_reasons.append(f'role is not ICP ("{excluded_role}", config/excluded_roles.txt) - hard pass')
+
     if any(has_phrase(company_name, c) for c in EXCLUDED_COMPANIES):
         override_ignore = True
         override_reasons.append('company on the hard-pass list (config/excluded_companies.txt)')
 
     primary_tag = (f['industries'][0] if f['industries'] else '').strip()
+    is_aero_def = any(has_phrase(primary_tag, k) for k in ('aerospace', 'defense'))
+    consumer_brand = (not is_aero_def) and (any_phrase(industries_text, CONSUMER_BRAND_INDUSTRY)
+                                            or any_phrase(activities_text, CONSUMER_BRAND_ACTIVITY))
     if any(has_phrase(primary_tag, k) for k in AERO_MFG_PRIMARY_SIGNALS):
-        if is_cmo_or_vp_marketing(title):
+        if consumer_brand:
+            flags.append(f'manufacturing tag ({primary_tag}) but DTC/consumer brand - kept (good niche), review')
+        elif is_cmo_or_vp_marketing(title):
             flags.append(f'aerospace/defense/manufacturing company ({primary_tag}) - kept because role is CMO/VP Marketing')
         else:
             override_ignore = True
@@ -732,6 +770,8 @@ def run(input_files, output_path):
                                          if r['priority'] in ('ICP','Qualified') and r['niche'] == 'None'),
         'excluded_restaurant': sum(1 for r in final_rows if 'restaurant/food-service operator' in r['flags']),
         'excluded_senior_care': sum(1 for r in final_rows if 'senior care/assisted living' in r['flags']),
+        'excluded_not_icp_role': sum(1 for r in final_rows if 'role is not ICP' in r['flags']),
+        'excluded_funeral': sum(1 for r in final_rows if 'funeral services / death care' in r['flags']),
         'excluded_aero_mfg': sum(1 for r in final_rows if 'hard pass unless CMO/VP Marketing' in r['flags']),
         'excluded_out_of_scope_role': sum(1 for r in final_rows if 'only pursued at ICP-tier' in r['flags']),
         'excluded_consulting': sum(1 for r in final_rows if 'consulting/professional-services firm' in r['flags']),
