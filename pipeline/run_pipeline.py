@@ -104,10 +104,32 @@ def start_run(s):
     return run
 
 
+DROPPED_CONNECTION = (requests.exceptions.ChunkedEncodingError,
+                      requests.exceptions.ConnectionError,
+                      requests.exceptions.Timeout)
+
+
+def get_with_reconnect(s, url, attempts=6, **kwargs):
+    """GET that survives a connection dropped mid-response (e.g. 'Response ended
+    prematurely' on Apify's long-poll). The HTTPAdapter retries only cover failures
+    BEFORE a response starts; this covers the ones during it. GETs are safe to repeat."""
+    for i in range(1, attempts + 1):
+        try:
+            r = s.get(url, **kwargs)
+            r.content  # force the full body to download inside the try
+            return r
+        except DROPPED_CONNECTION as e:
+            if i == attempts:
+                raise
+            wait = min(10 * i, 60)
+            log(f'connection to Apify dropped ({type(e).__name__}); retrying in {wait}s [{i}/{attempts - 1}]')
+            time.sleep(wait)
+
+
 def wait_for_run(s, run):
     deadline = time.time() + 60 * int(env('APIFY_MAX_WAIT_MIN', '300'))
     while True:
-        r = s.get(f'{APIFY}/actor-runs/{run["id"]}', params={'waitForFinish': 60}, timeout=120)
+        r = get_with_reconnect(s, f'{APIFY}/actor-runs/{run["id"]}', params={'waitForFinish': 60}, timeout=120)
         r.raise_for_status()
         run = r.json()['data']
         status = run['status']
@@ -142,8 +164,9 @@ def resolve_dataset_id(s, given_id):
 def download_dataset(s, dataset_id):
     items, offset, limit = [], 0, 1000
     while True:
-        r = s.get(f'{APIFY}/datasets/{dataset_id}/items',
-                  params={'format': 'json', 'clean': 'true', 'offset': offset, 'limit': limit}, timeout=300)
+        r = get_with_reconnect(s, f'{APIFY}/datasets/{dataset_id}/items',
+                               params={'format': 'json', 'clean': 'true', 'offset': offset, 'limit': limit},
+                               timeout=300)
         r.raise_for_status()
         page = r.json()
         if not isinstance(page, list):
